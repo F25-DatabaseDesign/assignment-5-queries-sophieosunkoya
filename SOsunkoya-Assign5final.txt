@@ -1,0 +1,270 @@
+
+1) How many containers of antibiotics are currently available?
+Query:
+SELECT
+  SUM(item.quantityOnHand) AS containers_available
+FROM
+  item
+WHERE
+  item.itemDescription LIKE '%antibiotic%';
+Answer: 100
+
+2) Which volunteer(s) have phone numbers that do not start with 2 and whose last name is not Jones?
+Query:
+SELECT DISTINCT
+  volunteerName
+FROM
+  volunteer
+WHERE
+  (volunteerTelephone IS NULL OR LEFT(volunteerTelephone, 1) <> '2')
+  AND volunteerName NOT LIKE '%Jones%';
+
+Answer: harry smith, Joan Simmons, Gene Lewin
+
+3) Which volunteer(s) are working on transporting tasks? 
+SELECT DISTINCT
+  volunteer.volunteerName
+FROM
+  assignment
+JOIN task
+  ON assignment.taskCode = task.taskCode
+JOIN task_type
+  ON task.taskTypeId = task_type.taskTypeId
+JOIN volunteer
+  ON assignment.volunteerId = volunteer.volunteerId
+WHERE
+  task_type.taskTypeName = 'transporting';
+
+Answer: George Brewer
+
+4) Which task(s) have yet to be assigned to any volunteers? 
+SELECT DISTINCT
+  task.taskDescription
+FROM
+  task
+LEFT JOIN assignment
+  ON assignment.taskCode = task.taskCode
+WHERE
+  assignment.taskCode IS NULL;
+
+Answer: 'Prepare 100 food packages'
+'Take packages to the warehouse'
+
+
+5) Which type(s) of package contain some kind of bottle?
+Query:
+SELECT DISTINCT
+  package_type.packageTypeName
+FROM
+  package
+JOIN package_type
+  ON package.packageTypeId = package_type.packageTypeId
+JOIN package_contents
+  ON package.packageId = package_contents.packageId
+JOIN item
+  ON item.itemId = package_contents.itemId
+WHERE
+  item.itemDescription LIKE '%bottle%';
+
+Answer: food and water
+
+6) Which items, if any, are not in any packages? 
+SELECT DISTINCT
+  item.itemDescription
+FROM
+  item
+LEFT JOIN package_contents
+  ON package_contents.itemId = item.itemId
+WHERE
+  package_contents.itemId IS NULL;
+
+
+Answer: 'bottle of antibiotics'
+'bottle of aspirin'
+'flashlight'
+'pack of bandages'
+
+
+7) Which task(s) are assigned to volunteer(s) that live in New Jersey (NJ)?
+Query:
+
+SELECT DISTINCT
+  task.taskDescription
+FROM
+  assignment
+JOIN volunteer
+  ON assignment.volunteerId = volunteer.volunteerId
+JOIN task
+  ON assignment.taskCode = task.taskCode
+WHERE
+  volunteer.volunteerAddress LIKE '%NJ%';
+
+Answer: 'Prepare 20 children\'s packages'
+'Prepare 100 water packages'
+'Prepare 5,000 packages'
+
+
+8) Which volunteers began their assignments in the first half of 2021? (return names)
+Query:
+SELECT DISTINCT
+  volunteer.volunteerName
+FROM
+  assignment
+JOIN volunteer
+  ON volunteer.volunteerId = assignment.volunteerId
+WHERE
+  assignment.startDateTime >= '2021-01-01'
+  AND assignment.startDateTime < '2021-07-01';
+
+
+Answer: 'Joan Simmons'
+'Chris Jordan'
+
+
+9) Which volunteers have been assigned to tasks that include packing Spam? 
+Query:
+SELECT DISTINCT
+  volunteer.volunteerName
+FROM
+  assignment
+JOIN task
+  ON task.taskCode = assignment.taskCode
+JOIN package
+  ON package.taskCode = task.taskCode
+JOIN package_contents
+  ON package_contents.packageId = package.packageId
+JOIN item
+  ON item.itemId = package_contents.itemId
+JOIN volunteer
+  ON volunteer.volunteerId = assignment.volunteerId
+WHERE
+  item.itemDescription = 'Spam'
+  OR item.itemDescription LIKE '%Spam%';
+
+Answer: 'Julie White'
+'Gerry Banks'
+
+
+10) Which item(s) have a total value of exactly $100 in one package? 
+Query:
+SELECT
+  item.itemDescription,
+  package_contents.packageId,
+  (package_contents.itemQuantity * item.itemValue) AS totalValue
+FROM
+  package_contents
+JOIN item
+  ON item.itemId = package_contents.itemId
+WHERE
+  (package_contents.itemQuantity * item.itemValue) = 100.00;
+
+
+
+Answer: baby formula 
+
+11) How many volunteers are assigned to tasks with each different status?
+
+Query:
+
+SELECT
+  ts.taskStatusName AS status,
+  COUNT(DISTINCT a.volunteerId) AS volunteer_count
+FROM
+  assignment AS a
+JOIN task AS t
+  ON t.taskCode = a.taskCode
+JOIN task_status AS ts
+  ON ts.taskStatusId = t.taskStatusId
+GROUP BY
+  ts.taskStatusName
+ORDER BY
+  volunteer_count DESC;
+
+
+Answer: 4 volunteers have open status, 3 volunteers have closed status, 2 volunteers have ongoing status, 1 volunteer have pending status
+
+12) Which task creates the heaviest set of packages and what is the weight?
+
+Query:
+
+SELECT
+  task.taskCode,
+  SUM(package_contents.itemQuantity * item.itemValue) AS total_value
+FROM
+  task
+JOIN package
+  ON package.taskCode = task.taskCode
+JOIN package_contents
+  ON package_contents.packageId = package.packageId
+JOIN item
+  ON item.itemId = package_contents.itemId
+GROUP BY
+  task.taskCode
+ORDER BY
+  total_value DESC
+LIMIT 1;
+
+Answer: tasccode: 105 and the weight is 1420
+
+13) How many tasks are there that do not have a type of 'packing'?
+Query:
+
+SELECT
+  COUNT(*) AS non_packing_tasks
+FROM
+  task
+JOIN task_type
+  ON task.taskTypeId = task_type.taskTypeId
+WHERE
+  task_type.taskTypeName NOT IN ('packing');
+
+Answer: 3
+
+14) Of those items that have been packed, which item(s) were touched by fewer than 3 volunteers?
+
+Query:
+
+SELECT
+  item.itemDescription
+FROM
+  item
+JOIN package_contents
+  ON package_contents.itemId = item.itemId
+JOIN package
+  ON package.packageId = package_contents.packageId
+JOIN task
+  ON task.taskCode = package.taskCode
+JOIN assignment
+  ON assignment.taskCode = task.taskCode
+GROUP BY
+  item.itemId, item.itemDescription
+HAVING
+  COUNT(DISTINCT assignment.volunteerId) < 3;
+
+Answer: 'can of spam'
+'dried fruit'
+'tent'
+'men\'s coat'
+'women\'s coat'
+'sleeping bag'
+
+
+15) Which packages have a total value of more than 100? 
+Query:
+SELECT
+  package.packageId,
+  SUM(package_contents.itemQuantity * item.itemValue) AS package_value
+FROM
+  package
+JOIN package_contents
+  ON package_contents.packageId = package.packageId
+JOIN item
+  ON item.itemId = package_contents.itemId
+GROUP BY
+  package.packageId
+HAVING
+  package_value > 100.00
+ORDER BY
+  package_value ASC;
+
+Answer: package 6 value is 150, package 2 value is 151, package 4 value is 350, package 10 value is 750, package 5 value is 1420
